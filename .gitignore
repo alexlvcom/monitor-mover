@@ -1,0 +1,16 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+publish/
+*.user
+
+# Rider / VS
+.idea/
+.vs/
+*.suo
+*.userprefs
+
+# OS
+Thumbs.db
+.DS_Store
