@@ -12,7 +12,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Product>MonitorMover</Product>
     <!-- Marketing version: bump the first three parts when the changelog gains an entry. -->
-    <VersionPrefix>1.1.3</VersionPrefix>
+    <VersionPrefix>1.1.4</VersionPrefix>
     <!-- Wildcard build/revision auto-changes on every build (needs Deterministic=false),
          so the About box shows a distinct version per build. -->
     <AssemblyVersion>1.1.*</AssemblyVersion>

@@ -12,6 +12,11 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.4", "2026-07-22", new[]
+        {
+            "Fixed: profile-bar button captions were clipped at the bottom on scaled",
+            "     displays; the toolbar now auto-sizes its controls at any DPI.",
+        }),
         ("1.1.3", "2026-07-22", new[]
         {
             "Layout: the monitors pane now defaults to ~14% of the height so the window",

@@ -120,23 +120,38 @@ public sealed class MainForm : Form
 
     private Panel BuildProfileBar()
     {
-        var bar = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 6, 8, 6) };
+        // FlowLayoutPanel + AutoSize controls so captions never clip at any DPI/scale.
+        var bar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Padding = new Padding(6, 4, 6, 4)
+        };
 
-        var lbl = new Label { Text = "Profile:", AutoSize = true, Left = 4, Top = 10 };
-        _profileCombo.Left = 60; _profileCombo.Top = 6; _profileCombo.Width = 240;
+        var lbl = new Label { Text = "Profile:", AutoSize = true, Margin = new Padding(2, 9, 4, 0) };
+        _profileCombo.Width = 220;
         _profileCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        _profileCombo.Margin = new Padding(0, 5, 10, 0);
 
-        var apply = new Button { Text = "Apply", Left = 310, Top = 5, Width = 90 };
-        apply.Click += (_, _) => ApplySelectedProfile();
+        Button MakeButton(string text, EventHandler onClick)
+        {
+            var b = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Margin = new Padding(3, 4, 3, 4),
+                Padding = new Padding(8, 3, 8, 3)
+            };
+            b.Click += onClick;
+            return b;
+        }
 
-        var save = new Button { Text = "Save Current Layout…", Left = 406, Top = 5, Width = 150 };
-        save.Click += (_, _) => SaveCurrentLayout();
-
-        var edit = new Button { Text = "Edit…", Left = 562, Top = 5, Width = 70 };
-        edit.Click += (_, _) => EditSelectedProfile();
-
-        var refresh = new Button { Text = "Refresh (F5)", Left = 638, Top = 5, Width = 100 };
-        refresh.Click += (_, _) => RefreshAll();
+        var apply = MakeButton("Apply", (_, _) => ApplySelectedProfile());
+        var save = MakeButton("Save Current Layout…", (_, _) => SaveCurrentLayout());
+        var edit = MakeButton("Edit…", (_, _) => EditSelectedProfile());
+        var refresh = MakeButton("Refresh (F5)", (_, _) => RefreshAll());
 
         bar.Controls.AddRange(new Control[] { lbl, _profileCombo, apply, save, edit, refresh });
         return bar;
