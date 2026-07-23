@@ -1,11 +1,12 @@
 # MonitorMover
 
 A lightweight .NET (WinForms) utility inspired by NirSoft's **MultiMonitorTool**.
-It does the two things you actually need — plus the feature MultiMonitorTool lacks:
+It does the two things you actually need — plus the features MultiMonitorTool lacks:
 
 1. **Detect monitors** — lists every display with resolution, position, primary flag, work area, and device name.
 2. **Move a window between monitors** — select any app window and send it to the next monitor, the primary monitor, or a specific monitor.
-3. **Layout profiles (the new feature)** — save your current window arrangement as a named profile (e.g. **Home**, **Office**) and re-apply it in one click. No more dragging every app back to the right screen each morning when your monitor setup changes.
+3. **Layout profiles** — save your current window arrangement as a named profile (e.g. **Home**, **Office**) and re-apply it in one click. No more dragging every app back to the right screen each morning when your monitor setup changes.
+4. **Search / filter apps by keyword** — no more scanning a long window list to find the one you want. Type any keyword in the **Filter apps** box and the list instantly narrows to every window whose title *or* process name contains it. Pick and move your app in a second.
 
 ![MonitorMover main window](MonitorMover.jpg)
 
@@ -64,6 +65,7 @@ Output: `bin\Release\net8.0-windows\MonitorMover.exe` (self-contained to the .NE
 
 Run `MonitorMover.exe`. Top panel = monitors, bottom panel = windows.
 
+- **Find an app by keyword:** type into the **Filter apps** box to instantly narrow the list to windows whose title or process name contains what you typed — much faster than eyeballing a long list. Clear the box to show everything again.
 - **Filter by monitor:** click a monitor in the top pane to show only that monitor's windows below; right-click a monitor → *Show Windows On All Monitors* to clear the filter.
 - **Move a window:** right-click it → *Move To Next / Primary / specific Monitor* (or F8 / F7).
 - **Save a layout:** *Profiles → Save Current Layout as Profile…* — captures all open app windows, then lets you prune/edit the list before saving.
