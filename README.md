@@ -9,6 +9,30 @@ It does the two things you actually need — plus the feature MultiMonitorTool l
 
 ![MonitorMover main window](MonitorMover.jpg)
 
+## Download
+
+Grab the latest **MonitorMover.exe** from the [Releases page](https://github.com/alexlvcom/monitor-mover/releases/latest) — or directly:
+
+**https://github.com/alexlvcom/monitor-mover/releases/latest/download/MonitorMover.exe**
+
+It's a single, self-contained executable — **no .NET runtime install needed**. Just download and double-click.
+
+### First run: Windows SmartScreen
+
+The exe is **unsigned** (I'm not paying for a code-signing certificate for a free hobby tool), so Windows may show **"Windows protected your PC."** This is *not* a virus warning — it only means the file is new and hasn't built up download reputation yet. Click **More info → Run anyway**.
+
+Prefer to be sure? The source is right here — [build it yourself](#build).
+
+### Verify your download (optional)
+
+Each release lists the SHA-256 of the exe. To check the file you downloaded matches:
+
+```powershell
+Get-FileHash .\MonitorMover.exe -Algorithm SHA256
+```
+
+Compare the output against the hash shown on that version's [release page](https://github.com/alexlvcom/monitor-mover/releases/latest).
+
 ## When you need this
 
 Windows is notoriously bad at remembering where your windows belong when the display setup changes. MonitorMover is for the moments it gets it wrong:
