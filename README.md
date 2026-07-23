@@ -7,6 +7,16 @@ It does the two things you actually need — plus the feature MultiMonitorTool l
 2. **Move a window between monitors** — select any app window and send it to the next monitor, the primary monitor, or a specific monitor.
 3. **Layout profiles (the new feature)** — save your current window arrangement as a named profile (e.g. **Home**, **Office**) and re-apply it in one click. No more dragging every app back to the right screen each morning when your monitor setup changes.
 
+![MonitorMover main window](MonitorMover.jpg)
+
+## When you need this
+
+Windows is notoriously bad at remembering where your windows belong when the display setup changes. MonitorMover is for the moments it gets it wrong:
+
+- **Switching between home and work.** Your desk at the office and your desk at home have different monitor counts, resolutions, or arrangements. Plug in at either place and Windows scatters your apps onto whatever screen it likes. Save a **Home** profile and an **Office** profile once, then apply the right one when you sit down and every app snaps back to its correct screen, position, size, and state.
+- **On a single PC, after a monitor was disconnected/reconnected.** Undocking a laptop, a monitor going to sleep, waking from standby, or a cable getting bumped makes Windows collapse everything onto one screen or pile windows up misaligned. Instead of dragging each app back by hand, apply your profile and the layout is repaired in one click.
+- **Ad-hoc, without profiles at all.** You just want *this one window* on the other monitor — select it and send it to the next / primary / a specific monitor (F8 / F7).
+
 ## Why profiles
 
 At the office and at home you have different monitor configurations, so Windows dumps your apps onto whatever screen it likes. Instead of manually moving each app every day:
