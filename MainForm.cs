@@ -11,6 +11,13 @@ public sealed class MainForm : Form
     private readonly ListView _windowList = new();
     private readonly ComboBox _profileCombo = new();
 
+    /// <summary>Per-app small icons for the window list, keyed by exe path or window handle.</summary>
+    private readonly ImageList _windowIcons = new()
+    {
+        ColorDepth = ColorDepth.Depth32Bit,
+        ImageSize = new Size(16, 16)
+    };
+
     private SplitContainer _split = null!;
     private Label _windowsHeader = null!;
     private readonly TextBox _filterBox = new();
@@ -199,6 +206,7 @@ public sealed class MainForm : Form
         _windowList.GridLines = true;
         _windowList.Dock = DockStyle.Fill;
         _windowList.MultiSelect = true;
+        _windowList.SmallImageList = _windowIcons;   // app icons in the Title column
         _windowList.Columns.Add("Title", 260);
         _windowList.Columns.Add("Monitor", 70);
         _windowList.Columns.Add("Left-Top", 90);
@@ -431,7 +439,7 @@ public sealed class MainForm : Form
         _windowList.Items.Clear();
         foreach (var w in shown)
         {
-            var it = new ListViewItem(w.Title);
+            var it = new ListViewItem(w.Title) { ImageKey = EnsureIcon(w) };
             var mon = _monitors.FirstOrDefault(m => m.DeviceName == w.MonitorDeviceName);
             it.SubItems.Add(mon != null ? $"#{mon.Index + 1}" : "?");
             it.SubItems.Add(w.LeftTop);
@@ -444,6 +452,23 @@ public sealed class MainForm : Form
             _windowList.Items.Add(it);
         }
         _windowList.EndUpdate();
+    }
+
+    /// <summary>
+    /// Return the ImageList key for this window's app icon, extracting and caching it
+    /// on first use. Keyed by exe path so all windows of an app share one icon; windows
+    /// with no accessible path fall back to a per-handle key. Empty string = no icon.
+    /// </summary>
+    private string EnsureIcon(WindowInfo w)
+    {
+        string key = !string.IsNullOrEmpty(w.ProcessPath) ? w.ProcessPath : "hwnd:" + w.Handle;
+        if (_windowIcons.Images.ContainsKey(key)) return key;
+
+        using var icon = AppIcons.For(w);
+        if (icon == null) return "";
+
+        _windowIcons.Images.Add(key, icon);   // ImageList copies the icon
+        return key;
     }
 
     private void PopulateProfiles()

@@ -12,6 +12,12 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.6", "2026-07-28", new[]
+        {
+            "New: the window list now shows each app's icon next to its title,",
+            "     like MultiMonitorTool. Icons are read from the window (best for",
+            "     packaged/UWP apps) with the executable's icon as a fallback.",
+        }),
         ("1.1.5", "2026-07-28", new[]
         {
             "Fixed: applying a profile after unplugging and reconnecting monitors sent",
