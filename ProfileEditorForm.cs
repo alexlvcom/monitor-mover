@@ -27,30 +27,66 @@ public sealed class ProfileEditorForm : Form
         MinimizeBox = false;
         MaximizeBox = true;
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(8, 6, 8, 6) };
-        var lbl = new Label { Text = "Profile name:", AutoSize = true, Left = 8, Top = 10 };
+        var top = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(8, 6, 8, 6)
+        };
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        var lbl = new Label
+        {
+            Text = "Profile name:",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 4, 6, 4)
+        };
         _nameBox.Text = profile.Name;
-        _nameBox.Left = 90; _nameBox.Top = 6; _nameBox.Width = 240;
-        top.Controls.Add(lbl);
-        top.Controls.Add(_nameBox);
+        _nameBox.Dock = DockStyle.Fill;
+        _nameBox.Margin = new Padding(0);
+        top.Controls.Add(lbl, 0, 0);
+        top.Controls.Add(_nameBox, 1, 0);
 
         BuildGrid();
 
-        var bottom = new Panel { Dock = DockStyle.Bottom, Height = 48, Padding = new Padding(8) };
-        var ok = new Button { Text = "Save", DialogResult = DialogResult.OK, Width = 90, Top = 8 };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Width = 90, Top = 8 };
-        var del = new Button { Text = "Remove Selected Rows", Width = 160, Top = 8, Left = 8 };
-        del.Click += (_, _) => RemoveSelected();
-        cancel.Left = bottom.ClientSize.Width - 100;
-        ok.Left = bottom.ClientSize.Width - 200;
-        bottom.Controls.Add(del);
-        bottom.Controls.Add(ok);
-        bottom.Controls.Add(cancel);
-        bottom.Resize += (_, _) =>
+        var bottom = new TableLayoutPanel
         {
-            cancel.Left = bottom.ClientSize.Width - 100;
-            ok.Left = bottom.ClientSize.Width - 200;
+            Dock = DockStyle.Bottom,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 4,
+            RowCount = 1,
+            Padding = new Padding(8)
         };
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        Button MakeButton(string text, DialogResult result = DialogResult.None) => new()
+        {
+            Text = text,
+            DialogResult = result,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(12, 4, 12, 4),
+            Margin = new Padding(4, 0, 0, 0),
+            Anchor = AnchorStyles.None
+        };
+
+        var ok = MakeButton("Save", DialogResult.OK);
+        var cancel = MakeButton("Cancel", DialogResult.Cancel);
+        var del = MakeButton("Remove Selected Rows");
+        del.Margin = new Padding(0);
+        del.Click += (_, _) => RemoveSelected();
+        bottom.Controls.Add(del, 0, 0);
+        bottom.Controls.Add(ok, 2, 0);
+        bottom.Controls.Add(cancel, 3, 0);
 
         AcceptButton = ok;
         CancelButton = cancel;
@@ -62,6 +98,12 @@ public sealed class ProfileEditorForm : Form
         ok.Click += (_, _) => CommitToProfile();
 
         LoadRows();
+        Shown += (_, _) =>
+        {
+            _nameBox.SelectionStart = 0;
+            _nameBox.SelectionLength = 0;
+            _nameBox.ScrollToCaret();
+        };
     }
 
     private DataGridViewCheckBoxColumn _colEnabled = null!;

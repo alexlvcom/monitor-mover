@@ -12,6 +12,19 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.8", "2026-07-28", new[]
+        {
+            "Fixed: Save Current Layout now updates the selected profile directly",
+            "     instead of prompting for a new profile name such as \"Office\".",
+            "New: use Profiles → Save Current Layout as New Profile when a separate",
+            "     profile is wanted.",
+            "Fixed: toolbar and profile-editor button captions no longer clip on",
+            "     scaled displays.",
+            "Fixed: the profile name field no longer overlaps its label or hides the",
+            "     beginning of the name at higher DPI settings.",
+            "New: a Delete button beside Edit makes removing the selected profile",
+            "     available directly from the toolbar, with confirmation.",
+        }),
         ("1.1.7", "2026-07-28", new[]
         {
             "Fixed: two monitors of the same resolution could not be told apart, so a",

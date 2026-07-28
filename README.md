@@ -58,10 +58,10 @@ Monitors are numbered by that same layout — **#1 is always the monitor at `0,0
 
 ```
 cd MonitorMover
-dotnet build -c Release
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
 ```
 
-Output: `bin\Release\net8.0-windows\MonitorMover.exe` (self-contained to the .NET 8 runtime).
+Output: `publish\MonitorMover.exe` (single-file, self-contained Windows x64 executable).
 
 ## Use (GUI)
 
@@ -70,9 +70,11 @@ Run `MonitorMover.exe`. Top panel = monitors, bottom panel = windows.
 - **Find an app by keyword:** type into the **Filter apps** box to instantly narrow the list to windows whose title or process name contains what you typed — much faster than eyeballing a long list. Clear the box to show everything again.
 - **Filter by monitor:** click a monitor in the top pane to show only that monitor's windows below; right-click a monitor → *Show Windows On All Monitors* to clear the filter.
 - **Move a window:** right-click it → *Move To Next / Primary / specific Monitor* (or F8 / F7).
-- **Save a layout:** *Profiles → Save Current Layout as Profile…* — captures all open app windows, then lets you prune/edit the list before saving.
+- **Update the selected layout:** click **Save Current Layout…** (or use *Profiles → Save Current Layout to Selected Profile…*) to recapture the currently selected profile without asking for another name.
+- **Save a new layout:** *Profiles → Save Current Layout as New Profile…* — captures all open app windows under a new name, then lets you prune/edit the list before saving.
 - **Add just a few apps:** select windows → right-click → *Add Selected to Profile…*.
 - **Edit a profile:** pick it in the Profile dropdown → *Edit…* — toggle rows on/off, refine the title match, change target monitor or state.
+- **Delete a profile:** pick it in the Profile dropdown → **Delete…**, then confirm.
 - **Apply:** pick a profile in the dropdown → **Apply**.
 
 ## Use (command line / scripting)

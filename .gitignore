@@ -14,3 +14,9 @@ publish/
 # OS
 Thumbs.db
 .DS_Store
+
+# Local AI deployment metadata
+.ai-metadata.env
+
+# Locally copied executable
+/MonitorMover.exe

@@ -52,7 +52,7 @@ public sealed class MainForm : Form
             RowCount = 4
         };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));        // menu
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));    // profile bar
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));        // profile bar
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));    // split (monitors/windows)
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));        // status bar
 
@@ -111,7 +111,8 @@ public sealed class MainForm : Form
         window.DropDownItems.Add(toPrimary);
 
         var profiles = new ToolStripMenuItem("&Profiles");
-        profiles.DropDownItems.Add("&Save Current Layout as Profile…", null, (_, _) => SaveCurrentLayout());
+        profiles.DropDownItems.Add("&Save Current Layout to Selected Profile…", null, (_, _) => SaveCurrentLayout());
+        profiles.DropDownItems.Add("Save Current Layout as &New Profile…", null, (_, _) => SaveCurrentLayoutAsNew());
         profiles.DropDownItems.Add("Add &Selected Windows to Profile…", null, (_, _) => AddSelectedToProfile());
         profiles.DropDownItems.Add(new ToolStripSeparator());
         profiles.DropDownItems.Add("&Edit Selected Profile…", null, (_, _) => EditSelectedProfile());
@@ -131,6 +132,8 @@ public sealed class MainForm : Form
         var bar = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             Padding = new Padding(6, 4, 6, 4)
@@ -158,9 +161,10 @@ public sealed class MainForm : Form
         var apply = MakeButton("Apply", (_, _) => ApplySelectedProfile());
         var save = MakeButton("Save Current Layout…", (_, _) => SaveCurrentLayout());
         var edit = MakeButton("Edit…", (_, _) => EditSelectedProfile());
+        var delete = MakeButton("Delete…", (_, _) => DeleteSelectedProfile());
         var refresh = MakeButton("Refresh (F5)", (_, _) => RefreshAll());
 
-        bar.Controls.AddRange(new Control[] { lbl, _profileCombo, apply, save, edit, refresh });
+        bar.Controls.AddRange(new Control[] { lbl, _profileCombo, apply, save, edit, delete, refresh });
         return bar;
     }
 
@@ -544,7 +548,19 @@ public sealed class MainForm : Form
 
     private void SaveCurrentLayout()
     {
-        string? name = Prompt.Text("Save Layout", "Name this profile (e.g. Home, Office):", "Office");
+        var selected = SelectedProfile();
+        if (selected == null)
+        {
+            SaveCurrentLayoutAsNew();
+            return;
+        }
+
+        CaptureCurrentLayout(selected.Name, selected.Name);
+    }
+
+    private void SaveCurrentLayoutAsNew()
+    {
+        string? name = Prompt.Text("Save Layout", "Name this new profile (e.g. Home, Office):", "Office");
         if (name == null) return;
 
         if (_store.Find(name) != null &&
@@ -552,11 +568,21 @@ public sealed class MainForm : Form
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             return;
 
+        CaptureCurrentLayout(name);
+    }
+
+    private void CaptureCurrentLayout(string name, string? replacedProfileName = null)
+    {
         var profile = ProfileStore.CaptureCurrent(name, _windows, _monitors);
 
         // Let the user immediately prune the captured list.
         using var editor = new ProfileEditorForm(profile, _monitors);
         if (editor.ShowDialog(this) != DialogResult.OK) return;
+
+        // Treat changing the name while updating as a rename, not as a duplicate.
+        if (replacedProfileName != null &&
+            !editor.Result.Name.Equals(replacedProfileName, StringComparison.OrdinalIgnoreCase))
+            _store.Remove(replacedProfileName);
 
         _store.AddOrReplace(editor.Result);
         PopulateProfiles();
