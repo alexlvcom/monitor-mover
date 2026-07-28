@@ -8,7 +8,7 @@ It does the two things you actually need — plus the features MultiMonitorTool 
 3. **Layout profiles** — save your current window arrangement as a named profile (e.g. **Home**, **Office**) and re-apply it in one click. No more dragging every app back to the right screen each morning when your monitor setup changes.
 4. **Search / filter apps by keyword** — no more scanning a long window list to find the one you want. Type any keyword in the **Filter apps** box and the list instantly narrows to every window whose title *or* process name contains it. Pick and move your app in a second.
 
-![MonitorMover main window](MonitorMover.jpg)
+![MonitorMover main window](MonitorMover-screenshot.jpg)
 
 ## Download
 
