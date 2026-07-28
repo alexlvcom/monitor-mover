@@ -50,7 +50,7 @@ At the office and at home you have different monitor configurations, so Windows 
 - Save a profile there (**Office**, **Home**, …).
 - Each day, pick the matching profile and hit **Apply** — every listed app jumps to its correct monitor, position, size, and state (normal / maximized).
 
-Profiles are keyed to the monitor layout at capture time and matched back by device name → monitor index → nearest resolution, so they survive small changes.
+Profiles are keyed to the monitor layout at capture time and matched back by resolution and primary flag first, with device name and monitor index only breaking ties. This survives Windows reassigning display device names when monitors are unplugged and reconnected, so applying a profile after a re-dock still sends each window to the right screen.
 
 ## Build
 
