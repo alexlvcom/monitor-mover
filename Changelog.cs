@@ -12,6 +12,13 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.5", "2026-07-28", new[]
+        {
+            "Fixed: applying a profile after unplugging and reconnecting monitors sent",
+            "     most windows to the primary screen. Windows reassigns display device",
+            "     names on re-dock, so rules are now matched to monitors by resolution",
+            "     and primary state first, with device name/index only breaking ties.",
+        }),
         ("1.1.4", "2026-07-22", new[]
         {
             "Fixed: profile-bar button captions were clipped at the bottom on scaled",

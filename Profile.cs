@@ -25,6 +25,11 @@ public sealed class AppRule
     public int MonitorWidth { get; set; }
     public int MonitorHeight { get; set; }
 
+    /// <summary>Whether the target monitor was the primary at capture time
+    /// (nullable so profiles saved before this field don't misreport). Primary
+    /// state survives disconnect/reconnect far better than the device name.</summary>
+    public bool? MonitorIsPrimary { get; set; }
+
     // Position relative to the target monitor's top-left, plus size and state.
     public int RelativeX { get; set; }
     public int RelativeY { get; set; }
@@ -45,24 +50,35 @@ public sealed class AppRule
     }
 
     /// <summary>Resolve the monitor this rule targets in the current monitor set.</summary>
+    /// <remarks>
+    /// Device names (<c>\\.\DISPLAYn</c>) are reassigned by Windows when monitors are
+    /// disconnected and reconnected, so trusting them first sends windows to the wrong
+    /// screen after a re-dock. Instead we score every monitor: resolution is the most
+    /// reliable signal and dominates, with the primary flag, then device name, then
+    /// index only breaking ties between equally-good candidates.
+    /// </remarks>
     public MonitorInfo? ResolveMonitor(List<MonitorInfo> monitors)
     {
-        var byName = monitors.FirstOrDefault(m => m.DeviceName == MonitorDeviceName);
-        if (byName != null) return byName;
+        if (monitors.Count == 0) return null;
 
-        var byIndex = monitors.FirstOrDefault(m => m.Index == MonitorIndex);
-        // Prefer index match only if its resolution is close to the captured one,
-        // otherwise pick the monitor with the nearest resolution.
-        var byRes = monitors
-            .OrderBy(m => Math.Abs(m.Bounds.Width - MonitorWidth) + Math.Abs(m.Bounds.Height - MonitorHeight))
-            .FirstOrDefault();
+        MonitorInfo? best = null;
+        long bestScore = long.MinValue;
+        foreach (var m in monitors)
+        {
+            long resDelta = Math.Abs(m.Bounds.Width - MonitorWidth) +
+                            Math.Abs(m.Bounds.Height - MonitorHeight);
 
-        if (byIndex != null &&
-            Math.Abs(byIndex.Bounds.Width - MonitorWidth) <= 200 &&
-            Math.Abs(byIndex.Bounds.Height - MonitorHeight) <= 200)
-            return byIndex;
+            // Resolution match dominates: each pixel of difference costs far more than
+            // any tie-breaker can award, so a monitor of the captured resolution always
+            // wins over one whose device name merely collides with a reassigned one.
+            long score = -resDelta * 1000;
+            if (MonitorIsPrimary.HasValue && m.IsPrimary == MonitorIsPrimary.Value) score += 100;
+            if (m.DeviceName == MonitorDeviceName) score += 10;
+            if (m.Index == MonitorIndex) score += 1;
 
-        return byRes ?? byIndex;
+            if (score > bestScore) { bestScore = score; best = m; }
+        }
+        return best;
     }
 }
 
@@ -167,6 +183,7 @@ public sealed class ProfileStore
                 MonitorIndex = mon.Index,
                 MonitorWidth = mon.Bounds.Width,
                 MonitorHeight = mon.Bounds.Height,
+                MonitorIsPrimary = mon.IsPrimary,
                 RelativeX = rect.Left - mon.Bounds.Left,
                 RelativeY = rect.Top - mon.Bounds.Top,
                 Width = rect.Width,
