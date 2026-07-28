@@ -96,8 +96,11 @@ public sealed class ProfileEditorForm : Form
         _grid.Columns.AddRange(_colEnabled, _colProcess, _colTitle, _colMatch, _colMonitor, _colState, _colPos);
     }
 
+    /// <summary>Dropdown caption for a monitor. Includes the layout position so two
+    /// monitors of the same resolution get distinct entries.</summary>
     private string MonitorLabel(MonitorInfo m) =>
-        $"#{m.Index + 1} ({m.Bounds.Width}x{m.Bounds.Height}){(m.IsPrimary ? " *" : "")}";
+        $"#{m.Index + 1} ({m.Bounds.Width}x{m.Bounds.Height} @ {m.Bounds.Left},{m.Bounds.Top})" +
+        (m.IsPrimary ? " *" : "");
 
     private void LoadRows()
     {
@@ -143,13 +146,7 @@ public sealed class ProfileEditorForm : Form
             if (row.Cells[_colMonitor.Index].Value is string monLabel)
             {
                 var mon = _monitors.FirstOrDefault(m => MonitorLabel(m) == monLabel);
-                if (mon != null)
-                {
-                    rule.MonitorDeviceName = mon.DeviceName;
-                    rule.MonitorIndex = mon.Index;
-                    rule.MonitorWidth = mon.Bounds.Width;
-                    rule.MonitorHeight = mon.Bounds.Height;
-                }
+                if (mon != null) rule.SetTargetMonitor(mon);
             }
 
             if (row.Cells[_colState.Index].Value is string st && Enum.TryParse<WinState>(st, out var ws))

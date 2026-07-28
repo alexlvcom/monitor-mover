@@ -19,7 +19,7 @@ public sealed class AppRule
     /// <summary>Human label shown in the editor (usually the captured title).</summary>
     public string DisplayTitle { get; set; } = "";
 
-    // Target monitor resolution — several keys for robustness across sessions.
+    // Target monitor identity — several keys for robustness across sessions.
     public string MonitorDeviceName { get; set; } = "";
     public int MonitorIndex { get; set; }
     public int MonitorWidth { get; set; }
@@ -29,6 +29,14 @@ public sealed class AppRule
     /// (nullable so profiles saved before this field don't misreport). Primary
     /// state survives disconnect/reconnect far better than the device name.</summary>
     public bool? MonitorIsPrimary { get; set; }
+
+    /// <summary>Top-left of the target monitor in virtual-desktop coordinates
+    /// (nullable: profiles saved before these fields must not be read as 0,0,
+    /// which is always the primary monitor). This is the desktop-layout position
+    /// the user arranged in Display Settings, and it is what tells two monitors
+    /// of the same resolution apart.</summary>
+    public int? MonitorLeft { get; set; }
+    public int? MonitorTop { get; set; }
 
     // Position relative to the target monitor's top-left, plus size and state.
     public int RelativeX { get; set; }
@@ -49,36 +57,63 @@ public sealed class AppRule
         return true;
     }
 
+    /// <summary>Record which monitor this rule targets, capturing every match key.</summary>
+    public void SetTargetMonitor(MonitorInfo mon)
+    {
+        MonitorDeviceName = mon.DeviceName;
+        MonitorIndex = mon.Index;
+        MonitorWidth = mon.Bounds.Width;
+        MonitorHeight = mon.Bounds.Height;
+        MonitorIsPrimary = mon.IsPrimary;
+        MonitorLeft = mon.Bounds.Left;
+        MonitorTop = mon.Bounds.Top;
+    }
+
     /// <summary>Resolve the monitor this rule targets in the current monitor set.</summary>
     /// <remarks>
     /// Device names (<c>\\.\DISPLAYn</c>) are reassigned by Windows when monitors are
     /// disconnected and reconnected, so trusting them first sends windows to the wrong
-    /// screen after a re-dock. Instead we score every monitor: resolution is the most
-    /// reliable signal and dominates, with the primary flag, then device name, then
-    /// index only breaking ties between equally-good candidates.
+    /// screen after a re-dock. Instead every monitor is ranked on a series of keys,
+    /// compared in order and each only breaking ties left by the one before it:
+    /// <list type="number">
+    ///   <item>resolution — the strongest identity signal;</item>
+    ///   <item>desktop-layout position — the origin (0,0) is always the primary and
+    ///         every other monitor keeps its arranged offset, so this is what tells
+    ///         two monitors of the <em>same</em> resolution apart;</item>
+    ///   <item>primary flag;</item>
+    ///   <item>device name, then index — both reshuffled on re-dock, last resort.</item>
+    /// </list>
     /// </remarks>
     public MonitorInfo? ResolveMonitor(List<MonitorInfo> monitors)
     {
         if (monitors.Count == 0) return null;
 
         MonitorInfo? best = null;
-        long bestScore = long.MinValue;
+        (long Res, long Pos, int Primary, int Device, int Index) bestKey = default;
         foreach (var m in monitors)
         {
-            long resDelta = Math.Abs(m.Bounds.Width - MonitorWidth) +
-                            Math.Abs(m.Bounds.Height - MonitorHeight);
-
-            // Resolution match dominates: each pixel of difference costs far more than
-            // any tie-breaker can award, so a monitor of the captured resolution always
-            // wins over one whose device name merely collides with a reassigned one.
-            long score = -resDelta * 1000;
-            if (MonitorIsPrimary.HasValue && m.IsPrimary == MonitorIsPrimary.Value) score += 100;
-            if (m.DeviceName == MonitorDeviceName) score += 10;
-            if (m.Index == MonitorIndex) score += 1;
-
-            if (score > bestScore) { bestScore = score; best = m; }
+            var key = MatchKey(m);
+            if (best == null || key.CompareTo(bestKey) < 0) { best = m; bestKey = key; }
         }
         return best;
+    }
+
+    /// <summary>Ranking keys for one candidate monitor; lower is a better match.</summary>
+    private (long Res, long Pos, int Primary, int Device, int Index) MatchKey(MonitorInfo m)
+    {
+        long res = Math.Abs(m.Bounds.Width - MonitorWidth) +
+                   Math.Abs(m.Bounds.Height - MonitorHeight);
+
+        // Position is only a signal when the profile actually recorded it — older
+        // profiles leave it null and must not all be treated as targeting 0,0.
+        long pos = MonitorLeft.HasValue && MonitorTop.HasValue
+            ? Math.Abs(m.Bounds.Left - MonitorLeft.Value) + Math.Abs(m.Bounds.Top - MonitorTop.Value)
+            : 0;
+
+        int primary = MonitorIsPrimary.HasValue && m.IsPrimary != MonitorIsPrimary.Value ? 1 : 0;
+        int device = m.DeviceName == MonitorDeviceName ? 0 : 1;
+        int index = m.Index == MonitorIndex ? 0 : 1;
+        return (res, pos, primary, device, index);
     }
 }
 
@@ -165,7 +200,8 @@ public sealed class ProfileStore
         {
             Name = name,
             MonitorSignature = string.Join(" | ",
-                monitors.Select(m => $"{m.DeviceName}={m.Bounds.Width}x{m.Bounds.Height}{(m.IsPrimary ? "*" : "")}"))
+                monitors.Select(m => $"{m.DeviceName}={m.Bounds.Width}x{m.Bounds.Height}" +
+                                     $"@{m.Bounds.Left},{m.Bounds.Top}{(m.IsPrimary ? "*" : "")}"))
         };
 
         foreach (var w in windows)
@@ -174,23 +210,20 @@ public sealed class ProfileStore
             // position they will actually occupy once restored.
             var rect = w.EffectiveBounds;
             var mon = WindowManager.MonitorContaining(rect, monitors);
-            profile.Rules.Add(new AppRule
+            var rule = new AppRule
             {
                 ProcessName = w.ProcessName,
                 TitleContains = null,
                 DisplayTitle = w.Title,
-                MonitorDeviceName = mon.DeviceName,
-                MonitorIndex = mon.Index,
-                MonitorWidth = mon.Bounds.Width,
-                MonitorHeight = mon.Bounds.Height,
-                MonitorIsPrimary = mon.IsPrimary,
                 RelativeX = rect.Left - mon.Bounds.Left,
                 RelativeY = rect.Top - mon.Bounds.Top,
                 Width = rect.Width,
                 Height = rect.Height,
                 State = w.State,
                 Enabled = true
-            });
+            };
+            rule.SetTargetMonitor(mon);
+            profile.Rules.Add(rule);
         }
         return profile;
     }

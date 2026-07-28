@@ -12,10 +12,25 @@ public static class WindowManager
 {
     // ---------------------------------------------------------------- Monitors
 
+    /// <summary>
+    /// All monitors, in a geometry-derived order so that #1 is always the same
+    /// physical screen from session to session.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Screen.AllScreens"/> follows the display-device enumeration, which
+    /// Windows reshuffles when monitors are unplugged and reconnected. The desktop
+    /// layout does not: the primary monitor's top-left is by definition (0,0) in
+    /// virtual-desktop coordinates, and every other monitor sits at a fixed offset
+    /// from it. So we sort primary-first, then left-to-right / top-to-bottom.
+    /// </remarks>
     public static List<MonitorInfo> GetMonitors()
     {
         var list = new List<MonitorInfo>();
-        var screens = Screen.AllScreens;
+        var screens = Screen.AllScreens
+            .OrderByDescending(s => s.Primary)
+            .ThenBy(s => s.Bounds.Left)
+            .ThenBy(s => s.Bounds.Top)
+            .ToArray();
         for (int i = 0; i < screens.Length; i++)
         {
             var s = screens[i];

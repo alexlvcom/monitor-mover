@@ -12,6 +12,16 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.7", "2026-07-28", new[]
+        {
+            "Fixed: two monitors of the same resolution could not be told apart, so a",
+            "     profile could restore windows to the wrong one of the pair. Rules now",
+            "     also record the monitor's desktop-layout position (0,0 is always the",
+            "     primary) and match on it right after resolution.",
+            "Monitors are now numbered by layout — #1 is always the monitor at 0,0,",
+            "     then left-to-right — instead of by the device order Windows reshuffles",
+            "     on re-dock. The profile editor's monitor list shows the position too.",
+        }),
         ("1.1.6", "2026-07-28", new[]
         {
             "New: the window list now shows each app's icon next to its title,",
