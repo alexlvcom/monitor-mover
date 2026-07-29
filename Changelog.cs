@@ -12,6 +12,22 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.10", "2026-07-29", new[]
+        {
+            "Fixed: saving the current layout over a profile dropped every app that was",
+            "     not running at that moment, so a closed app lost its monitor and opened",
+            "     wherever Windows chose next time. A capture is now merged into the",
+            "     profile: running apps have their rule refreshed, closed apps keep",
+            "     theirs, and new apps are added. Removing an app stays deliberate —",
+            "     select its row and use Remove Selected Rows.",
+            "Re-capturing also no longer switches a rule the user had turned off back on.",
+            "New: closed apps are listed as \"kept\" in the change table, so it is clear",
+            "     the profile still remembers them.",
+            "Fixed: the layout is now read fresh when saving, instead of using the window",
+            "     list from the last refresh — MonitorMover's own window could be missing",
+            "     from a snapshot taken before the main window appeared.",
+            "The headless --capture command merges the same way.",
+        }),
         ("1.1.9", "2026-07-29", new[]
         {
             "Fixed: applying a profile moved only one window of an app, leaving other",

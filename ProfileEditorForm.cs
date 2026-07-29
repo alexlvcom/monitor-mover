@@ -17,6 +17,7 @@ public sealed class ProfileEditorForm : Form
 {
     private readonly Profile _profile;
     private readonly Profile? _baseline;
+    private readonly ISet<string>? _runningProcesses;
     private readonly List<MonitorInfo> _monitors;
     private readonly DataGridView _grid = new();
     private readonly TextBox _nameBox = new();
@@ -34,10 +35,12 @@ public sealed class ProfileEditorForm : Form
     /// (0 when there is no baseline to compare against).</summary>
     public int ChangeCount { get; private set; }
 
-    public ProfileEditorForm(Profile profile, List<MonitorInfo> monitors, Profile? baseline = null)
+    public ProfileEditorForm(Profile profile, List<MonitorInfo> monitors, Profile? baseline = null,
+        ISet<string>? runningProcesses = null)
     {
         _profile = profile;
         _baseline = baseline;
+        _runningProcesses = runningProcesses;
         _monitors = monitors;
 
         Text = "Edit Profile";
@@ -290,6 +293,8 @@ public sealed class ProfileEditorForm : Form
     private static readonly Color RemovedFore = Color.FromArgb(160, 26, 26);
     private static readonly Color ChangedBack = Color.FromArgb(255, 248, 224);
     private static readonly Color ChangedFore = Color.FromArgb(140, 88, 0);
+    private static readonly Color KeptBack = Color.FromArgb(236, 240, 245);
+    private static readonly Color KeptFore = Color.FromArgb(70, 92, 115);
     private static readonly Color QuietFore = Color.FromArgb(130, 130, 130);
 
     // Banner palette: amber "there are changes", blue "nothing to save".
@@ -392,22 +397,32 @@ public sealed class ProfileEditorForm : Form
                 NoteChanged = true
             });
         }
-        rows.AddRange(ProfileStore.Diff(_baseline, _profile, _monitors));
+        rows.AddRange(ProfileStore.Diff(_baseline, _profile, _monitors, _runningProcesses));
 
         var changes = rows.Where(r => r.IsChange).ToList();
-        int unchanged = rows.Count - changes.Count;
+        var kept = rows.Where(r => r.Kind == ChangeKind.Kept).ToList();
+        int unchanged = rows.Count - changes.Count - kept.Count;
         ChangeCount = changes.Count;
 
+        // Changes first, then the closed apps whose rules are being preserved — those are
+        // not changes, but the user needs to see the profile is not losing them.
+        var shown = changes.Concat(kept);
+        if (_showUnchanged.Checked)
+            shown = shown.Concat(rows.Where(r => r.Kind == ChangeKind.Unchanged));
+
         _diffGrid.Rows.Clear();
-        foreach (var c in _showUnchanged.Checked ? rows : changes)
-            AddDiffRow(c);
+        foreach (var c in shown) AddDiffRow(c);
+
+        string keptText = kept.Count > 0 ? $"{kept.Count} app(s) not running — rules kept" : "";
+        string unchangedText = unchanged > 0 ? $"{unchanged} app(s) unchanged" : "";
+        string tail = string.Join("   ·   ", new[] { keptText, unchangedText }.Where(s => s.Length > 0));
 
         if (changes.Count == 0)
         {
             _diffHeader.BackColor = BannerCleanBack;
             _diffHeader.ForeColor = BannerCleanFore;
             _diffHeader.Text = $"✓   NO CHANGES TO SAVE — this layout already matches the saved " +
-                               $"profile \"{_baseline.Name}\" ({unchanged} app(s), all unchanged).";
+                               $"profile \"{_baseline.Name}\"" + (tail.Length > 0 ? $"      ({tail})" : "");
             _diffEmptyNote.Text = "Nothing differs from the saved profile, so Save is disabled.\r\n" +
                                   "Move a window and re-open this dialog, or tick \"Show unchanged apps\" " +
                                   "to review what the profile currently holds.";
@@ -417,7 +432,7 @@ public sealed class ProfileEditorForm : Form
             _diffHeader.BackColor = BannerChangedBack;
             _diffHeader.ForeColor = BannerChangedFore;
             _diffHeader.Text = $"{changes.Count} CHANGE(S) TO SAVE  vs the saved profile \"{_baseline.Name}\"" +
-                               (unchanged > 0 ? $"      ({unchanged} app(s) unchanged)" : "");
+                               (tail.Length > 0 ? $"      ({tail})" : "");
             _diffEmptyNote.Text = "";
         }
 
@@ -442,6 +457,7 @@ public sealed class ProfileEditorForm : Form
             ChangeKind.Added => (AddedBack, AddedFore),
             ChangeKind.Removed => (RemovedBack, RemovedFore),
             ChangeKind.Changed => (ChangedBack, ChangedFore),
+            ChangeKind.Kept => (KeptBack, KeptFore),
             _ => (SystemColors.Window, QuietFore)
         };
         row.DefaultCellStyle.BackColor = back;

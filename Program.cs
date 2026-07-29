@@ -70,6 +70,10 @@ internal static class Program
                 var capMon = WindowManager.GetMonitors();
                 var capWin = WindowManager.GetWindows();
                 var captured = ProfileStore.CaptureCurrent(args[1], capWin, capMon);
+                // Updating an existing profile keeps the rules of apps that are closed,
+                // exactly as the GUI does — a capture must not drop what it cannot see.
+                var previous = store.Find(args[1]);
+                if (previous != null) captured = ProfileStore.MergeCapture(previous, captured);
                 store.AddOrReplace(captured);
                 return true;
 

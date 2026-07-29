@@ -573,16 +573,22 @@ public sealed class MainForm : Form
     }
 
     /// <summary>
-    /// Capture the live layout into <paramref name="name"/>. When it replaces an existing
-    /// profile, the editor compares the capture against that saved version so the user sees
-    /// exactly which apps moved before saving — and cannot overwrite it with no changes.
+    /// Capture the live layout into <paramref name="name"/>. When it updates an existing
+    /// profile the capture is merged into it — apps that are closed keep their rules — and
+    /// the editor compares the result against the saved version, so the user sees exactly
+    /// what will change and cannot overwrite it with no changes.
     /// </summary>
     private void CaptureCurrentLayout(string name, Profile? replaced = null)
     {
+        // Capture what is on screen now, not what the list last showed.
+        _windows = WindowManager.GetWindows();
+        _monitors = WindowManager.GetMonitors();
+
         var profile = ProfileStore.CaptureCurrent(name, _windows, _monitors);
+        if (replaced != null) profile = ProfileStore.MergeCapture(replaced, profile);
 
         // Let the user immediately prune the captured list.
-        using var editor = new ProfileEditorForm(profile, _monitors, replaced);
+        using var editor = new ProfileEditorForm(profile, _monitors, replaced, RunningProcesses());
         if (editor.ShowDialog(this) != DialogResult.OK) return;
 
         // Treat changing the name while updating as a rename, not as a duplicate.
@@ -599,6 +605,11 @@ public sealed class MainForm : Form
             ? $"Saved profile \"{editor.Result.Name}\" with {enabled} enabled app rule(s)."
             : $"Saved \"{editor.Result.Name}\": {editor.ChangeCount} change(s), {enabled} enabled app rule(s).");
     }
+
+    /// <summary>Executables with a window open right now — lets the editor point out which
+    /// rules belong to apps that are simply not running.</summary>
+    private ISet<string> RunningProcesses() =>
+        _windows.Select(w => w.ProcessName).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private void AddSelectedToProfile()
     {
@@ -638,7 +649,7 @@ public sealed class MainForm : Form
         // The editor mutates the profile in place, so compare against a snapshot of the
         // saved state — that also keeps Save disabled until an edit really changes something.
         var saved = ProfileStore.Clone(profile);
-        using var editor = new ProfileEditorForm(profile, _monitors, saved);
+        using var editor = new ProfileEditorForm(profile, _monitors, saved, RunningProcesses());
         if (editor.ShowDialog(this) != DialogResult.OK) return;
 
         if (!editor.Result.Name.Equals(saved.Name, StringComparison.OrdinalIgnoreCase))

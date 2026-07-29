@@ -277,6 +277,43 @@ public sealed class ProfileStore
     private const int CascadeStep = 32;
 
     /// <summary>
+    /// Fold a fresh capture into an existing profile, keeping the rules of apps that are
+    /// not running right now.
+    /// </summary>
+    /// <remarks>
+    /// A capture only sees what is open, so replacing the profile with it would silently
+    /// drop every closed app — and the next time one of them started it would open on
+    /// whatever monitor Windows chose. Apps that are running have their rule refreshed,
+    /// apps that are not keep theirs, and newly seen apps are appended. Dropping an app
+    /// stays an explicit act: "Remove Selected Rows" in the editor.
+    /// </remarks>
+    public static Profile MergeCapture(Profile existing, Profile captured)
+    {
+        var merged = Clone(existing);
+        merged.Name = captured.Name;
+        merged.MonitorSignature = captured.MonitorSignature;
+
+        foreach (var rule in captured.Rules)
+        {
+            int at = merged.Rules.FindIndex(r =>
+                string.IsNullOrEmpty(r.TitleContains) &&
+                r.ProcessName.Equals(rule.ProcessName, StringComparison.OrdinalIgnoreCase));
+
+            if (at < 0)
+            {
+                merged.Rules.Add(rule);
+                continue;
+            }
+
+            // Re-capturing a layout must not silently switch a rule the user turned off
+            // back on, so the enabled flag stays with the profile.
+            rule.Enabled = merged.Rules[at].Enabled;
+            merged.Rules[at] = rule;
+        }
+        return merged;
+    }
+
+    /// <summary>
     /// Apply a profile against the current windows/monitors. Every window of a matched
     /// executable is placed, not just the first one, so a second instance can't be left
     /// behind on the monitor it happened to open on. Returns a per-window log.
@@ -340,7 +377,12 @@ public sealed class ProfileStore
     /// apps that did not move are included with <see cref="ChangeKind.Unchanged"/> so a
     /// caller can either show or just count them.
     /// </summary>
-    public static List<LayoutChange> Diff(Profile before, Profile after, List<MonitorInfo> monitors)
+    /// <param name="runningProcesses">Process names with a window open right now. When
+    /// supplied, an untouched rule whose app is not running is reported as
+    /// <see cref="ChangeKind.Kept"/> — it explains why the app is still in the profile
+    /// even though the capture could not see it.</param>
+    public static List<LayoutChange> Diff(Profile before, Profile after, List<MonitorInfo> monitors,
+        ISet<string>? runningProcesses = null)
     {
         var rows = new List<LayoutChange>();
         var oldRules = RulesByKey(before);
@@ -388,18 +430,24 @@ public sealed class ProfileStore
             bool posChanged = o.RelativeX != n.RelativeX || o.RelativeY != n.RelativeY;
             bool sizeChanged = o.Width != n.Width || o.Height != n.Height;
             bool enabledChanged = o.Enabled != n.Enabled;
+            bool changed = monChanged || stateChanged || posChanged || sizeChanged || enabledChanged;
+            bool notRunning = runningProcesses != null && !runningProcesses.Contains(n.ProcessName);
 
             rows.Add(new LayoutChange
             {
-                Kind = monChanged || stateChanged || posChanged || sizeChanged || enabledChanged
-                    ? ChangeKind.Changed : ChangeKind.Unchanged,
+                Kind = changed ? ChangeKind.Changed
+                     : notRunning ? ChangeKind.Kept
+                     : ChangeKind.Unchanged,
                 App = key,
                 Monitor = Pair($"#{oldMon}", $"#{newMon}"),
                 State = Pair(o.State.ToString(), n.State.ToString()),
                 Position = Pair($"{o.RelativeX},{o.RelativeY}", $"{n.RelativeX},{n.RelativeY}"),
                 Size = Pair($"{o.Width}x{o.Height}", $"{n.Width}x{n.Height}"),
                 Note = enabledChanged ? (n.Enabled ? "switched on" : "switched off")
-                     : n.Enabled ? "" : "off",
+                     : !n.Enabled && notRunning ? "off · not running — rule kept"
+                     : !n.Enabled ? "off"
+                     : notRunning ? "not running — rule kept"
+                     : "",
                 MonitorChanged = monChanged,
                 StateChanged = stateChanged,
                 PositionChanged = posChanged,
@@ -439,7 +487,9 @@ public sealed class ProfileStore
 }
 
 /// <summary>How an app's rule differs between two versions of a profile.</summary>
-public enum ChangeKind { Added, Removed, Changed, Unchanged }
+/// <remarks><see cref="Kept"/> is not a difference: the rule is untouched, but its app is
+/// closed, so it is worth showing that the profile still remembers where it belongs.</remarks>
+public enum ChangeKind { Added, Removed, Changed, Kept, Unchanged }
 
 /// <summary>
 /// One row of a layout comparison. Each value column reads either as a single value (that
@@ -465,7 +515,8 @@ public sealed class LayoutChange
     public bool SizeChanged { get; init; }
     public bool NoteChanged { get; init; }
 
-    public bool IsChange => Kind != ChangeKind.Unchanged;
+    /// <summary>True when saving would actually alter the profile.</summary>
+    public bool IsChange => Kind is ChangeKind.Added or ChangeKind.Removed or ChangeKind.Changed;
 
     /// <summary>Column caption; the symbol keeps the rows readable without relying on colour.</summary>
     public string KindText => Kind switch
@@ -473,6 +524,7 @@ public sealed class LayoutChange
         ChangeKind.Added => "+  added",
         ChangeKind.Removed => "−  removed",
         ChangeKind.Changed => "~  changed",
+        ChangeKind.Kept => "=  kept",
         _ => "unchanged"
     };
 }

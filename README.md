@@ -60,6 +60,16 @@ A profile stores **executables, not individual windows**: one rule per `.exe`, a
 
 Need one window somewhere else? Give it its own rule with a **Title Contains** filter in the profile editor — title-narrowed rules claim their windows first, and the app's general rule then takes all the remaining ones.
 
+### Closing an app never drops it
+
+Saving the current layout over an existing profile **merges** into it rather than replacing it. A capture can only see what is open, so:
+
+- apps that are running have their rule refreshed to where they sit now,
+- apps that are **closed keep their rule** — quit Discord for a week and it still returns to its monitor when you next open it,
+- apps you have not captured before are added, and a rule you switched off stays off.
+
+Dropping an app is therefore always deliberate: select its row in the editor and click **Remove Selected Rows**. Closed apps are listed as **"kept"** in the change table so you can see the profile still remembers them.
+
 ### Seeing what changed before you save
 
 Updating an existing profile — **Save Current Layout…** or **Edit…** — shows a **comparison table right in the dialog, above the Save button**, so you review the difference *before* overwriting anything:
@@ -67,10 +77,10 @@ Updating an existing profile — **Save Current Layout…** or **Edit…** — s
 | Change | Application | Monitor | State | Position | Size |
 |---|---|---|---|---|---|
 | ~ changed | Evernote.exe | #2 → #1 | Normal → Maximized | 100,80 | 900x700 |
-| − removed | olk.exe | #1 | Normal | 100,80 | 900x700 |
+| = kept | Discord.exe | #2 | Maximized | 195,35 | 1725x905 |
 | + added | Termius.exe | #2 | Normal | 100,80 | 900x700 |
 
-Rows are colour-coded — green added, red removed, amber changed — and within a changed row only the fields that actually moved are highlighted; the rest are greyed out so your eye goes straight to the difference. The table updates live as you edit rows or rename the profile, and unchanged apps are collapsed into a count (tick **Show unchanged apps** to list them).
+Rows are colour-coded — green added, red removed, amber changed, grey-blue kept — and within a changed row only the fields that actually moved are highlighted; the rest are greyed out so your eye goes straight to the difference. The table updates live as you edit rows or rename the profile, and unchanged apps are collapsed into a count (tick **Show unchanged apps** to list them).
 
 If nothing differs, a blue banner across the pane reads **"✓ NO CHANGES TO SAVE — this layout already matches the saved profile"**, the table area explains why it's empty, and the **Save button is disabled and relabelled "Nothing to Save"** — so a profile can never be overwritten with an identical copy. When there *are* changes the banner turns amber and counts them.
 
