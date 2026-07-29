@@ -54,6 +54,26 @@ Profiles are keyed to the monitor layout at capture time and matched back on a s
 
 Monitors are numbered by that same layout — **#1 is always the monitor at `0,0`**, then left-to-right — rather than by the device enumeration order Windows reshuffles on re-dock.
 
+### One rule per application
+
+A profile stores **executables, not individual windows**: one rule per `.exe`, and applying it moves **every** open window of that app to the app's monitor. Open a second Chrome window, a third Evernote note or another PhpStorm project and they all follow the same rule — nothing gets left behind on the screen it happened to open on. Extra instances of a *normal* (non-maximized) window are cascaded slightly so they don't stack exactly on top of each other.
+
+Need one window somewhere else? Give it its own rule with a **Title Contains** filter in the profile editor — title-narrowed rules claim their windows first, and the app's general rule then takes all the remaining ones.
+
+### Seeing what changed before you save
+
+Updating an existing profile — **Save Current Layout…** or **Edit…** — shows a **comparison table right in the dialog, above the Save button**, so you review the difference *before* overwriting anything:
+
+| Change | Application | Monitor | State | Position | Size |
+|---|---|---|---|---|---|
+| ~ changed | Evernote.exe | #2 → #1 | Normal → Maximized | 100,80 | 900x700 |
+| − removed | olk.exe | #1 | Normal | 100,80 | 900x700 |
+| + added | Termius.exe | #2 | Normal | 100,80 | 900x700 |
+
+Rows are colour-coded — green added, red removed, amber changed — and within a changed row only the fields that actually moved are highlighted; the rest are greyed out so your eye goes straight to the difference. The table updates live as you edit rows or rename the profile, and unchanged apps are collapsed into a count (tick **Show unchanged apps** to list them).
+
+If nothing differs, a blue banner across the pane reads **"✓ NO CHANGES TO SAVE — this layout already matches the saved profile"**, the table area explains why it's empty, and the **Save button is disabled and relabelled "Nothing to Save"** — so a profile can never be overwritten with an identical copy. When there *are* changes the banner turns amber and counts them.
+
 ## Build
 
 ```
@@ -70,10 +90,10 @@ Run `MonitorMover.exe`. Top panel = monitors, bottom panel = windows.
 - **Find an app by keyword:** type into the **Filter apps** box to instantly narrow the list to windows whose title or process name contains what you typed — much faster than eyeballing a long list. Clear the box to show everything again.
 - **Filter by monitor:** click a monitor in the top pane to show only that monitor's windows below; right-click a monitor → *Show Windows On All Monitors* to clear the filter.
 - **Move a window:** right-click it → *Move To Next / Primary / specific Monitor* (or F8 / F7).
-- **Update the selected layout:** click **Save Current Layout…** (or use *Profiles → Save Current Layout to Selected Profile…*) to recapture the currently selected profile without asking for another name.
+- **Update the selected layout:** click **Save Current Layout…** (or use *Profiles → Save Current Layout to Selected Profile…*) to recapture the currently selected profile without asking for another name. The dialog shows a colour-coded **change table** — what moved, what was added, what disappeared — before you commit, and **Save stays disabled while nothing has changed**.
 - **Save a new layout:** *Profiles → Save Current Layout as New Profile…* — captures all open app windows under a new name, then lets you prune/edit the list before saving.
 - **Add just a few apps:** select windows → right-click → *Add Selected to Profile…*.
-- **Edit a profile:** pick it in the Profile dropdown → *Edit…* — toggle rows on/off, refine the title match, change target monitor or state.
+- **Edit a profile:** pick it in the Profile dropdown → *Edit…* — one row per application: toggle rows on/off, change target monitor or state, or add a *Title Contains* filter to split one window off from the rest. Every edit is reflected live in the comparison table below.
 - **Delete a profile:** pick it in the Profile dropdown → **Delete…**, then confirm.
 - **Apply:** pick a profile in the dropdown → **Apply**.
 
@@ -102,5 +122,5 @@ Double-click the right one when you sit down.
 ## Notes / limits
 
 - To move windows belonging to **elevated** apps, run MonitorMover as administrator.
-- Matching is by process name (+ optional title substring). If you run two windows of the same app, add a *Title Contains* filter to target each one.
+- Matching is by process name, so **all** windows of an app share its rule. Add a *Title Contains* filter only when one specific window needs a different monitor from the rest.
 - Minimized/maximized windows capture their **restore** position, so they land correctly when reopened.

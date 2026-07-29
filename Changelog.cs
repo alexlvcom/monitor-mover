@@ -12,6 +12,29 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.9", "2026-07-29", new[]
+        {
+            "Fixed: applying a profile moved only one window of an app, leaving other",
+            "     instances behind on the wrong monitor. A rule now places EVERY open",
+            "     window of its executable — all Chrome windows, all Evernote notes, all",
+            "     PhpStorm projects go to the app's monitor.",
+            "Profiles now store one rule per executable instead of one per window;",
+            "     profiles saved earlier are folded down to that automatically on load.",
+            "     Extra instances of a normal-state window are cascaded slightly so they",
+            "     don't sit exactly on top of each other.",
+            "A \"Title Contains\" filter still gives one particular window a target of its",
+            "     own, and such rules are applied before the app's general rule.",
+            "New: updating a profile (Save Current Layout, or Edit) now shows a colour-",
+            "     coded comparison table in the dialog, above the Save button: green for",
+            "     added apps, red for removed, amber for changed, with only the fields",
+            "     that actually moved (monitor, state, position, size) highlighted.",
+            "     It refreshes live as rows are edited or the profile is renamed, and",
+            "     unchanged apps are collapsed into a count you can expand.",
+            "New: while nothing differs from the saved profile the Save button is disabled",
+            "     and reads \"Nothing to Save\", and a full-width banner spells it out — so a",
+            "     profile can no longer be overwritten with an identical copy, and the empty",
+            "     table area explains why instead of sitting blank.",
+        }),
         ("1.1.8", "2026-07-28", new[]
         {
             "Fixed: Save Current Layout now updates the selected profile directly",

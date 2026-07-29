@@ -555,7 +555,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        CaptureCurrentLayout(selected.Name, selected.Name);
+        CaptureCurrentLayout(selected.Name, selected);
     }
 
     private void SaveCurrentLayoutAsNew()
@@ -563,31 +563,41 @@ public sealed class MainForm : Form
         string? name = Prompt.Text("Save Layout", "Name this new profile (e.g. Home, Office):", "Office");
         if (name == null) return;
 
-        if (_store.Find(name) != null &&
+        var existing = _store.Find(name);
+        if (existing != null &&
             MessageBox.Show($"Profile \"{name}\" exists. Overwrite?", "Confirm",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             return;
 
-        CaptureCurrentLayout(name);
+        CaptureCurrentLayout(name, existing);
     }
 
-    private void CaptureCurrentLayout(string name, string? replacedProfileName = null)
+    /// <summary>
+    /// Capture the live layout into <paramref name="name"/>. When it replaces an existing
+    /// profile, the editor compares the capture against that saved version so the user sees
+    /// exactly which apps moved before saving — and cannot overwrite it with no changes.
+    /// </summary>
+    private void CaptureCurrentLayout(string name, Profile? replaced = null)
     {
         var profile = ProfileStore.CaptureCurrent(name, _windows, _monitors);
 
         // Let the user immediately prune the captured list.
-        using var editor = new ProfileEditorForm(profile, _monitors);
+        using var editor = new ProfileEditorForm(profile, _monitors, replaced);
         if (editor.ShowDialog(this) != DialogResult.OK) return;
 
         // Treat changing the name while updating as a rename, not as a duplicate.
-        if (replacedProfileName != null &&
-            !editor.Result.Name.Equals(replacedProfileName, StringComparison.OrdinalIgnoreCase))
-            _store.Remove(replacedProfileName);
+        if (replaced != null &&
+            !editor.Result.Name.Equals(replaced.Name, StringComparison.OrdinalIgnoreCase))
+            _store.Remove(replaced.Name);
 
         _store.AddOrReplace(editor.Result);
         PopulateProfiles();
         _profileCombo.SelectedItem = editor.Result.Name;
-        SetStatus($"Saved profile \"{editor.Result.Name}\" with {editor.Result.Rules.Count(r => r.Enabled)} enabled rule(s).");
+
+        int enabled = editor.Result.Rules.Count(r => r.Enabled);
+        SetStatus(replaced == null
+            ? $"Saved profile \"{editor.Result.Name}\" with {enabled} enabled app rule(s)."
+            : $"Saved \"{editor.Result.Name}\": {editor.ChangeCount} change(s), {enabled} enabled app rule(s).");
     }
 
     private void AddSelectedToProfile()
@@ -602,12 +612,13 @@ public sealed class MainForm : Form
         var profile = _store.Find(name) ?? new Profile { Name = name };
         var captured = ProfileStore.CaptureCurrent(name, sel, _monitors);
 
-        // Merge: replace any rule with the same process+title, else add.
+        // Merge: rules are per executable, so a captured rule replaces the profile's
+        // existing rule for that .exe. Rules narrowed by title are left in place.
         foreach (var rule in captured.Rules)
         {
             profile.Rules.RemoveAll(r =>
                 r.ProcessName.Equals(rule.ProcessName, StringComparison.OrdinalIgnoreCase) &&
-                (r.DisplayTitle == rule.DisplayTitle));
+                string.IsNullOrEmpty(r.TitleContains));
             profile.Rules.Add(rule);
         }
         if (string.IsNullOrEmpty(profile.MonitorSignature))
@@ -624,13 +635,19 @@ public sealed class MainForm : Form
         var profile = SelectedProfile();
         if (profile == null) { SetStatus("Select a profile first."); return; }
 
-        using var editor = new ProfileEditorForm(profile, _monitors);
+        // The editor mutates the profile in place, so compare against a snapshot of the
+        // saved state — that also keeps Save disabled until an edit really changes something.
+        var saved = ProfileStore.Clone(profile);
+        using var editor = new ProfileEditorForm(profile, _monitors, saved);
         if (editor.ShowDialog(this) != DialogResult.OK) return;
+
+        if (!editor.Result.Name.Equals(saved.Name, StringComparison.OrdinalIgnoreCase))
+            _store.Remove(saved.Name);
 
         _store.AddOrReplace(editor.Result);
         PopulateProfiles();
         _profileCombo.SelectedItem = editor.Result.Name;
-        SetStatus($"Updated profile \"{editor.Result.Name}\".");
+        SetStatus($"Updated profile \"{editor.Result.Name}\": {editor.ChangeCount} change(s).");
     }
 
     private void ApplySelectedProfile()
@@ -645,8 +662,11 @@ public sealed class MainForm : Form
         var log = ProfileStore.Apply(profile, _windows, _monitors);
         RefreshAll();
 
+        // One line per window, since a rule can place several instances of an app.
         int ok = log.Count(l => l.StartsWith("OK"));
-        SetStatus($"Applied \"{profile.Name}\": {ok}/{log.Count} rule(s) placed.");
+        int skipped = log.Count - ok;
+        SetStatus($"Applied \"{profile.Name}\": {ok} window(s) placed" +
+                  (skipped > 0 ? $", {skipped} rule(s) skipped." : "."));
         ResultViewer.Show($"Apply Profile — {profile.Name}", log);
     }
 

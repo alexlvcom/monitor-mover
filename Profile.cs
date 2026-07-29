@@ -6,8 +6,11 @@ namespace MonitorMover;
 
 /// <summary>
 /// One saved rule: "the app matching X belongs on monitor Y at this position/size/state".
-/// Matching is by process name; an optional title substring disambiguates multiple
-/// windows of the same process.
+/// A rule identifies an <em>executable</em>, not a single window: when applied it moves
+/// every open window of that process, so a second Chrome or PhpStorm instance can never
+/// be left behind on the wrong monitor. An optional title substring narrows a rule to
+/// just the windows whose title contains it, for the rare case where one window of an
+/// app really does belong somewhere else.
 /// </summary>
 public sealed class AppRule
 {
@@ -128,6 +131,31 @@ public sealed class Profile
     public List<AppRule> Rules { get; set; } = new();
 
     public override string ToString() => Name;
+
+    /// <summary>
+    /// Enforce one rule per executable: since a rule now covers every window of its
+    /// process, a second rule for the same process could never claim any window. Keeps
+    /// the first rule for each process and drops the later duplicates. Rules narrowed
+    /// by <see cref="AppRule.TitleContains"/> are deliberate per-window exceptions and
+    /// are left alone. Returns how many rules were removed.
+    /// </summary>
+    /// <remarks>
+    /// Applied when loading, so profiles captured by earlier versions — which stored one
+    /// rule per window — collapse to per-executable rules without the user re-capturing.
+    /// </remarks>
+    public int CollapseToOneRulePerProcess()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var kept = new List<AppRule>(Rules.Count);
+        foreach (var r in Rules)
+        {
+            if (!string.IsNullOrEmpty(r.TitleContains) || seen.Add(r.ProcessName))
+                kept.Add(r);
+        }
+        int removed = Rules.Count - kept.Count;
+        Rules = kept;
+        return removed;
+    }
 }
 
 /// <summary>Loads and saves all profiles to a single JSON file under %APPDATA%.</summary>
@@ -160,6 +188,9 @@ public sealed class ProfileStore
             {
                 var json = File.ReadAllText(FilePath);
                 Profiles = JsonSerializer.Deserialize<List<Profile>>(json, JsonOpts) ?? new();
+                // Profiles saved before rules became per-executable may hold several
+                // rules for one process; fold them down so applying is predictable.
+                foreach (var p in Profiles) p.CollapseToOneRulePerProcess();
             }
         }
         catch
@@ -204,45 +235,68 @@ public sealed class ProfileStore
                                      $"@{m.Bounds.Left},{m.Bounds.Top}{(m.IsPrimary ? "*" : "")}"))
         };
 
-        foreach (var w in windows)
+        // One rule per executable, not per window: the profile records where an app
+        // belongs, and every instance of it follows that rule on apply.
+        foreach (var group in windows.GroupBy(w => w.ProcessName, StringComparer.OrdinalIgnoreCase))
         {
             // Use the restore rectangle so minimized/maximized windows capture the
             // position they will actually occupy once restored.
-            var rect = w.EffectiveBounds;
-            var mon = WindowManager.MonitorContaining(rect, monitors);
+            var placed = group
+                .Select(w => (Window: w, Rect: w.EffectiveBounds))
+                .Select(x => (x.Window, x.Rect, Mon: WindowManager.MonitorContaining(x.Rect, monitors)))
+                .ToList();
+
+            // With several windows open the app's home is the monitor most of them sit
+            // on; the first window there supplies the position, size and state.
+            var rep = placed
+                .GroupBy(p => p.Mon.DeviceName)
+                .OrderByDescending(g => g.Count())
+                .First()
+                .First();
+
             var rule = new AppRule
             {
-                ProcessName = w.ProcessName,
+                ProcessName = rep.Window.ProcessName,
                 TitleContains = null,
-                DisplayTitle = w.Title,
-                RelativeX = rect.Left - mon.Bounds.Left,
-                RelativeY = rect.Top - mon.Bounds.Top,
-                Width = rect.Width,
-                Height = rect.Height,
-                State = w.State,
+                DisplayTitle = rep.Window.Title,
+                RelativeX = rep.Rect.Left - rep.Mon.Bounds.Left,
+                RelativeY = rep.Rect.Top - rep.Mon.Bounds.Top,
+                Width = rep.Rect.Width,
+                Height = rep.Rect.Height,
+                State = rep.Window.State,
                 Enabled = true
             };
-            rule.SetTargetMonitor(mon);
+            rule.SetTargetMonitor(rep.Mon);
             profile.Rules.Add(rule);
         }
         return profile;
     }
 
+    /// <summary>Offset applied to each extra instance of an app so windows sharing a
+    /// rule cascade instead of hiding one another completely.</summary>
+    private const int CascadeStep = 32;
+
     /// <summary>
-    /// Apply a profile against the current windows/monitors. Returns a per-rule log.
+    /// Apply a profile against the current windows/monitors. Every window of a matched
+    /// executable is placed, not just the first one, so a second instance can't be left
+    /// behind on the monitor it happened to open on. Returns a per-window log.
     /// </summary>
     public static List<string> Apply(Profile profile, List<WindowInfo> windows, List<MonitorInfo> monitors)
     {
         var log = new List<string>();
         var used = new HashSet<IntPtr>();
 
-        foreach (var rule in profile.Rules)
-        {
-            if (!rule.Enabled) continue;
+        // Title-narrowed rules run first: they are explicit exceptions, so they claim
+        // their windows before the executable's general rule sweeps up the rest.
+        var ordered = profile.Rules
+            .Where(r => r.Enabled)
+            .OrderBy(r => string.IsNullOrEmpty(r.TitleContains) ? 1 : 0)
+            .ToList();
 
-            // First unused window that matches (title rule wins over generic).
-            var match = windows.FirstOrDefault(w => !used.Contains(w.Handle) && rule.Matches(w));
-            if (match == null)
+        foreach (var rule in ordered)
+        {
+            var matches = windows.Where(w => !used.Contains(w.Handle) && rule.Matches(w)).ToList();
+            if (matches.Count == 0)
             {
                 log.Add($"SKIP  {rule.ProcessName} \"{rule.DisplayTitle}\" — no matching window open");
                 continue;
@@ -255,18 +309,170 @@ public sealed class ProfileStore
                 continue;
             }
 
-            try
+            int instance = 0;
+            foreach (var match in matches)
             {
-                WindowManager.ApplyPlacement(match.Handle, mon,
-                    rule.RelativeX, rule.RelativeY, rule.Width, rule.Height, rule.State);
-                used.Add(match.Handle);
-                log.Add($"OK    {rule.ProcessName} \"{match.Title}\" → monitor #{mon.Index + 1} ({rule.State})");
-            }
-            catch (Exception ex)
-            {
-                log.Add($"FAIL  {rule.ProcessName} — {ex.Message}");
+                try
+                {
+                    // Extra instances land on the same monitor in the same state; only
+                    // free-floating ones are nudged so they stay individually reachable.
+                    int nudge = rule.State == WinState.Normal ? instance * CascadeStep : 0;
+                    WindowManager.ApplyPlacement(match.Handle, mon,
+                        rule.RelativeX + nudge, rule.RelativeY + nudge, rule.Width, rule.Height, rule.State);
+                    used.Add(match.Handle);
+                    instance++;
+                    log.Add($"OK    {rule.ProcessName} \"{match.Title}\" → monitor #{mon.Index + 1} ({rule.State})");
+                }
+                catch (Exception ex)
+                {
+                    log.Add($"FAIL  {rule.ProcessName} \"{match.Title}\" — {ex.Message}");
+                }
             }
         }
         return log;
     }
+
+    // ------------------------------------------------ layout comparison
+
+    /// <summary>
+    /// Compare two versions of a profile, one row per executable: which apps were added
+    /// or dropped, and for the rest what moved (monitor, state, position, size). Rows for
+    /// apps that did not move are included with <see cref="ChangeKind.Unchanged"/> so a
+    /// caller can either show or just count them.
+    /// </summary>
+    public static List<LayoutChange> Diff(Profile before, Profile after, List<MonitorInfo> monitors)
+    {
+        var rows = new List<LayoutChange>();
+        var oldRules = RulesByKey(before);
+        var newRules = RulesByKey(after);
+
+        foreach (var key in oldRules.Keys.Concat(newRules.Keys).Distinct(StringComparer.OrdinalIgnoreCase)
+                                    .OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+        {
+            oldRules.TryGetValue(key, out var o);
+            newRules.TryGetValue(key, out var n);
+
+            if (o == null && n != null)
+            {
+                rows.Add(new LayoutChange
+                {
+                    Kind = ChangeKind.Added,
+                    App = key,
+                    Monitor = $"#{MonitorNumber(n, monitors)}",
+                    State = n.State.ToString(),
+                    Position = $"{n.RelativeX},{n.RelativeY}",
+                    Size = $"{n.Width}x{n.Height}",
+                    Note = n.Enabled ? "" : "off"
+                });
+                continue;
+            }
+            if (n == null && o != null)
+            {
+                rows.Add(new LayoutChange
+                {
+                    Kind = ChangeKind.Removed,
+                    App = key,
+                    Monitor = $"#{MonitorNumber(o, monitors)}",
+                    State = o.State.ToString(),
+                    Position = $"{o.RelativeX},{o.RelativeY}",
+                    Size = $"{o.Width}x{o.Height}",
+                    Note = "no longer in profile"
+                });
+                continue;
+            }
+            if (o == null || n == null) continue;
+
+            int oldMon = MonitorNumber(o, monitors), newMon = MonitorNumber(n, monitors);
+            bool monChanged = oldMon != newMon;
+            bool stateChanged = o.State != n.State;
+            bool posChanged = o.RelativeX != n.RelativeX || o.RelativeY != n.RelativeY;
+            bool sizeChanged = o.Width != n.Width || o.Height != n.Height;
+            bool enabledChanged = o.Enabled != n.Enabled;
+
+            rows.Add(new LayoutChange
+            {
+                Kind = monChanged || stateChanged || posChanged || sizeChanged || enabledChanged
+                    ? ChangeKind.Changed : ChangeKind.Unchanged,
+                App = key,
+                Monitor = Pair($"#{oldMon}", $"#{newMon}"),
+                State = Pair(o.State.ToString(), n.State.ToString()),
+                Position = Pair($"{o.RelativeX},{o.RelativeY}", $"{n.RelativeX},{n.RelativeY}"),
+                Size = Pair($"{o.Width}x{o.Height}", $"{n.Width}x{n.Height}"),
+                Note = enabledChanged ? (n.Enabled ? "switched on" : "switched off")
+                     : n.Enabled ? "" : "off",
+                MonitorChanged = monChanged,
+                StateChanged = stateChanged,
+                PositionChanged = posChanged,
+                SizeChanged = sizeChanged,
+                NoteChanged = enabledChanged
+            });
+        }
+        return rows;
+    }
+
+    /// <summary>"a" when both sides agree, otherwise "a → b".</summary>
+    private static string Pair(string oldValue, string newValue) =>
+        oldValue == newValue ? oldValue : $"{oldValue} → {newValue}";
+
+    /// <summary>Rules of a profile keyed for comparison: the executable, plus the title
+    /// filter when one narrows the rule (those are separate entries).</summary>
+    private static Dictionary<string, AppRule> RulesByKey(Profile p)
+    {
+        var map = new Dictionary<string, AppRule>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in p.Rules)
+        {
+            string key = string.IsNullOrEmpty(r.TitleContains)
+                ? r.ProcessName
+                : $"{r.ProcessName} [{r.TitleContains}]";
+            map[key] = r;
+        }
+        return map;
+    }
+
+    private static int MonitorNumber(AppRule r, List<MonitorInfo> monitors) =>
+        (r.ResolveMonitor(monitors)?.Index ?? r.MonitorIndex) + 1;
+
+    /// <summary>Independent copy, so a profile can be edited while its saved state is
+    /// kept intact to compare against.</summary>
+    public static Profile Clone(Profile p) =>
+        JsonSerializer.Deserialize<Profile>(JsonSerializer.Serialize(p, JsonOpts), JsonOpts)!;
+}
+
+/// <summary>How an app's rule differs between two versions of a profile.</summary>
+public enum ChangeKind { Added, Removed, Changed, Unchanged }
+
+/// <summary>
+/// One row of a layout comparison. Each value column reads either as a single value (that
+/// field is the same in both versions) or as "old → new"; the <c>*Changed</c> flags say
+/// which ones actually moved, so a view can highlight exactly those cells.
+/// </summary>
+public sealed class LayoutChange
+{
+    public ChangeKind Kind { get; init; }
+
+    /// <summary>Executable name, with the title filter appended for narrowed rules.</summary>
+    public string App { get; init; } = "";
+
+    public string Monitor { get; init; } = "";
+    public string State { get; init; } = "";
+    public string Position { get; init; } = "";
+    public string Size { get; init; } = "";
+    public string Note { get; init; } = "";
+
+    public bool MonitorChanged { get; init; }
+    public bool StateChanged { get; init; }
+    public bool PositionChanged { get; init; }
+    public bool SizeChanged { get; init; }
+    public bool NoteChanged { get; init; }
+
+    public bool IsChange => Kind != ChangeKind.Unchanged;
+
+    /// <summary>Column caption; the symbol keeps the rows readable without relying on colour.</summary>
+    public string KindText => Kind switch
+    {
+        ChangeKind.Added => "+  added",
+        ChangeKind.Removed => "−  removed",
+        ChangeKind.Changed => "~  changed",
+        _ => "unchanged"
+    };
 }
