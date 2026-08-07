@@ -134,3 +134,4 @@ Double-click the right one when you sit down.
 - To move windows belonging to **elevated** apps, run MonitorMover as administrator.
 - Matching is by process name, so **all** windows of an app share its rule. Add a *Title Contains* filter only when one specific window needs a different monitor from the rest.
 - Minimized/maximized windows capture their **restore** position, so they land correctly when reopened.
+- **Upgrading over an older copy:** Windows caches executable icons, so an existing taskbar pin or shortcut may keep showing the old blank icon after replacing the exe. Unpin and re-pin it once — or run `ie4uinit.exe -show` — to refresh the cache.

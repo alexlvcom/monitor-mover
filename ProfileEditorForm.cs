@@ -44,6 +44,7 @@ public sealed class ProfileEditorForm : Form
         _monitors = monitors;
 
         Text = "Edit Profile";
+        AppIcon.Apply(this);
         Width = 980;
         Height = baseline == null ? 560 : 760;
         StartPosition = FormStartPosition.CenterParent;

@@ -17,6 +17,7 @@ public static class Prompt
             MinimizeBox = false,
             MaximizeBox = false
         };
+        AppIcon.Apply(form);
         var lbl = new Label { Left = 12, Top = 12, Width = 380, Text = message };
         var box = new TextBox { Left = 12, Top = 40, Width = 380, Text = initial };
         var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 226, Top = 80, Width = 80 };
@@ -40,6 +41,7 @@ public static class ResultViewer
             Height = 440,
             StartPosition = FormStartPosition.CenterParent
         };
+        AppIcon.Apply(form);
         var box = new TextBox
         {
             Dock = DockStyle.Fill,

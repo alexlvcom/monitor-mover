@@ -9,15 +9,23 @@
     <AssemblyName>MonitorMover</AssemblyName>
     <RootNamespace>MonitorMover</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Embeds the icon in the exe's Win32 resources, so Explorer, the taskbar and
+         pinned shortcuts show it without the app running. -->
+    <ApplicationIcon>MonitorMover.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Product>MonitorMover</Product>
     <!-- Marketing version: bump the first three parts when the changelog gains an entry. -->
-    <VersionPrefix>1.1.10</VersionPrefix>
+    <VersionPrefix>1.1.11</VersionPrefix>
     <!-- Wildcard build/revision auto-changes on every build (needs Deterministic=false),
          so the About box shows a distinct version per build. -->
     <AssemblyVersion>1.1.*</AssemblyVersion>
     <Deterministic>false</Deterministic>
-    <FileVersion>1.1.10.0</FileVersion>
+    <FileVersion>1.1.11.0</FileVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Same file again as a managed resource, so the windows can use it at runtime. -->
+    <EmbeddedResource Include="MonitorMover.ico" LogicalName="MonitorMover.ico" />
+  </ItemGroup>
 
 </Project>

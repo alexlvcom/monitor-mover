@@ -34,6 +34,7 @@ public sealed class MainForm : Form
     public MainForm()
     {
         Text = $"MonitorMover  v{Changelog.MarketingVersion}";
+        AppIcon.Apply(this);
         Width = 1200;
         Height = 780;
         StartPosition = FormStartPosition.CenterScreen;

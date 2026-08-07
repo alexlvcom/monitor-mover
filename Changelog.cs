@@ -12,6 +12,15 @@ public static class Changelog
     /// <summary>Newest first. Each entry: version, date, and bullet notes.</summary>
     public static readonly (string Version, string Date, string[] Notes)[] Entries =
     {
+        ("1.1.11", "2026-08-07", new[]
+        {
+            "Fixed: MonitorMover.exe had no icon, so Explorer, the Start menu and a",
+            "     taskbar pin all showed the blank generic-application placeholder — the",
+            "     icon only appeared once the app was running.",
+            "New: the app now has its own icon (a monitor with a move arrow), embedded in",
+            "     the executable at every size Windows asks for, from 16×16 up to 256×256.",
+            "     All windows — main, profile editor and the small dialogs — use it too.",
+        }),
         ("1.1.10", "2026-07-29", new[]
         {
             "Fixed: saving the current layout over a profile dropped every app that was",
